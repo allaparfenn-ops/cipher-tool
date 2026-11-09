@@ -2,7 +2,9 @@
 
 from PySide6.QtCore import QObject, Slot
 
-from ciphers import ENGLISH, RUSSIAN, caesar, atbash, vigenere, xor_cipher, affine, aes_encrypt 
+from ciphers import ENGLISH, RUSSIAN, caesar, atbash, vigenere, xor_cipher, affine
+from aes_course.lessons import LESSONS, guide_text
+from aes_course.checks import check_step, process_block
 
 
 class Backend(QObject):
@@ -46,34 +48,24 @@ class Backend(QObject):
     @Slot(str, str, str, bool, result="QVariantMap")
     def process_vigenere(self, text, key, language, decrypt):
         alphabet = RUSSIAN if language == "Русский" else ENGLISH
-        if not key or not key.isalpha():
-            return {
-                "text": "",
-                "steps": "Ошибка: ключ должен состоять только из букв."
-            }
-        result = vigenere(text, key, alphabet, decrypt)
+        # Алгоритм проверяет ключ, а мост показывает ошибку в пояснении:
+        # сообщение об ошибке не должно выглядеть как зашифрованный текст.
+        try:
+            result = vigenere(text, key, alphabet, decrypt)
+        except ValueError as error:
+            return {"text": "", "steps": f"Ошибка: {error}"}
         action = "Расшифровка" if decrypt else "Шифрование"
         return {
             "text": result,
             "steps": f"{action} Виженера\nКлюч: {key}\nРезультат: {result}"
         }
-    @Slot(str, str, bool, result="QVariantMap")
-    def process_xor(self, text, key, decrypt):
-        if not key:
-            return {
-                "text": "",
-                "steps": "Ошибка: ключ не может быть пустым."
-            }
-        result = xor_cipher(text, key)
-        action = "Расшифровка" if decrypt else "Шифрование"
-        return {
-            "text": result,
-            "steps": f"{action} XOR\nКлюч: {key}\nРезультат: {result}"
-        }
     @Slot(str, int, int, str, bool, result="QVariantMap")
     def process_affine(self, text, a, b, language, decrypt):
         alphabet = RUSSIAN if language == "Русский" else ENGLISH
-        result = affine(text, a, b, alphabet, decrypt)
+        try:
+            result = affine(text, a, b, alphabet, decrypt)
+        except ValueError as error:
+            return {"text": "", "steps": f"Ошибка: {error}"}
         action = "Расшифровка" if decrypt else "Шифрование"
         return {
             "text": result,
@@ -81,9 +73,10 @@ class Backend(QObject):
         }
     @Slot(str, str, bool, result="QVariantMap")
     def process_xor(self, text, key, decrypt):
-        if not key:
-            return {"text": "", "steps": "Ошибка: ключ не может быть пустым."}
-        result = xor_cipher(text, key, decrypt)
+        try:
+            result = xor_cipher(text, key, decrypt)
+        except ValueError as error:
+            return {"text": "", "steps": f"Ошибка: {error}"}
         action = "Расшифровка" if decrypt else "Шифрование"
         return {
             "text": result,
@@ -91,14 +84,17 @@ class Backend(QObject):
         }
     @Slot(str, str, bool, result="QVariantMap")
     def process_aes(self, text, key, decrypt):
-        if not key:
-            return {"text": "", "steps": "Ошибка: ключ не может быть пустым."}
-        
-        if decrypt:
-            return {"text": text, "steps": "Расшифровка AES пока в разработке."}
-        
-        result = aes_encrypt(text, key)
-        return {
-            "text": result,
-            "steps": f"Шифрование AES\nКлюч: {key}\nРезультат (Hex): {result}"
-        }
+        """Обвязка готова; сами преобразования дописывает ученик в aes_course/student.py."""
+        return process_block(text, key, decrypt)
+
+    @Slot(result="QVariantList")
+    def aes_lessons(self):
+        return LESSONS
+
+    @Slot(result=str)
+    def aes_guide(self):
+        return guide_text()
+
+    @Slot(str, result="QVariantMap")
+    def check_aes_step(self, name):
+        return check_step(name)
